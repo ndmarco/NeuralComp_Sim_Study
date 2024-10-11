@@ -2,6 +2,7 @@
 ### and the rest come from the IIGPP model
 library(NeuralComp)
 library(MASS)
+library(statmod)
 library(truncnorm)
 library(ggplot2)
 library(latex2exp)
@@ -11,6 +12,7 @@ library(ggpubr)
 library(grid)
 library(transport)
 library(ggallin)
+library(gridExtra)
 
 save_dir <- "."
 
@@ -187,9 +189,9 @@ run_sim <- function(iter, n_trials){
   
   
   # Distance from posterior predictive distributions
-  dist_switches <- wasserstein1d(post_pred_sample$n_switches, post_pred_true$n_switches)
-  dist_prop_A <- wasserstein1d(prop_time_A_sample, prop_time_A_true)
-  dist_n_AB <- wasserstein1d(post_pred_sample$n_AB, post_pred_true$n_AB)
+  rel_dist_n_switches <- sum(abs(post_pred_sample$n_switches[order(post_pred_sample$n_switches)] - post_pred_true$n_switches[order(post_pred_true$n_switches)]))/ abs(sum(post_pred_true$n_switches))
+  rel_dist_prop_A <- sum(abs(prop_time_A_sample[order(prop_time_A_sample)] - prop_time_A_true[order(prop_time_A_true)]))/ abs(sum(prop_time_A_true))
+  rel_dist_n_AB <- sum(abs(post_pred_sample$n_AB[order(post_pred_sample$n_AB)] - post_pred_true$n_AB[order(post_pred_true$n_AB)]))/ abs(sum(post_pred_true$n_AB))
   
   params <- list("I_A" = I_A, "I_B" = I_B, "sigma_A" = sigma_A, "sigma_B" = sigma_B,
                  "delta" = delta, "basis_coef_A" = basis_coef_A, "basis_coef_B" = basis_coef_B)
@@ -199,23 +201,26 @@ run_sim <- function(iter, n_trials){
                  "coverage_sigma_A" = coverage_sigma_A, "coverage_sigma_B" = coverage_sigma_B,
                  "CI_width_sigma_A" = CI_width_sigma_A, "CI_width_sigma_B" = CI_width_sigma_B,
                  "rel_error_delta" = rel_error_delta, "CI_width_delta" = CI_width_delta, 
-                 "coverage_delta" = coverage_delta, "dist_switches" = dist_switches, "dist_prop_A" = dist_prop_A,
-                 "dist_n_AB" = dist_n_AB, "params" = params)
+                 "coverage_delta" = coverage_delta, "rel_dist_n_switches" = rel_dist_n_switches, "rel_dist_prop_A" = rel_dist_prop_A,
+                 "rel_dist_n_AB" = rel_dist_n_AB, "params" = params)
   saveRDS(output, paste0(save_dir, "/", n_trials, "/output", iter,".RDS"))
 }
 
 
-ncpu <- min(5, availableCores())
 
 #
-n_trials = 100
-plan(multisession, workers = ncpu)
-already_ran <- dir(paste0(save_dir, "/", n_trials))
-to_run <- which(!paste0("output", 1:100, ".RDS") %in% already_ran)
-future_lapply(to_run, function(this_seed) run_sim(this_seed, n_trials))
+n_trials = c(5,10,25,50,100)
+for(i in 1:length(n_trials)){
+  ncpu <- min(5, availableCores())
+  plan(multisession, workers = ncpu)
+  already_ran <- dir(paste0(save_dir, "/", n_trials[i]))
+  to_run <- which(!paste0("output", 1:100, ".RDS") %in% already_ran)
+  future_lapply(to_run, function(this_seed) run_sim(this_seed, n_trials[i]))
+}
 
 
-n_trials <- c(25, 50, 100)
+
+n_trials <- c(5, 10, 25, 50, 100)
 files <- dir(paste0(save_dir, "/", n_trials[1]))
 coverage_A_FR <- matrix(NA, nrow = length(files), ncol = length(n_trials))
 coverage_B_FR <- matrix(NA, nrow = length(files), ncol = length(n_trials))
@@ -255,56 +260,68 @@ for(j in 1:length(n_trials)){
     rel_error_delta[i,j] <- output$rel_error_delta
     CI_width_delta[i,j] <- output$CI_width_delta
     coverage_delta[i,j] <- output$coverage_delta
-    dist_switches[i,j] <- output$dist_switches
-    dist_prop_A[i,j] <- output$dist_prop_A
-    dist_n_AB[i,j] <- output$dist_n_AB
+    dist_switches[i,j] <- output$rel_dist_n_switches
+    dist_prop_A[i,j] <- output$rel_dist_prop_A
+    dist_n_AB[i,j] <- output$rel_dist_n_AB
     print(i)
   }
 }
 
 
-# Plot R-MISE for the mean function of feature 1
+# Plot R-MISE for the
 FR_RSE <- matrix(0, length(files) * length(n_trials), 2)
 FR_RSE[1:length(files),1] <- (rel_error_A[,1] + rel_error_B[,1]) / 2
-FR_RSE[1:length(files),2] <- 25
+FR_RSE[1:length(files),2] <- 5
 FR_RSE[(length(files) + 1):(2 * length(files)),1] <- (rel_error_A[,2] + rel_error_B[,2]) / 2
-FR_RSE[(length(files) + 1):(2 * length(files)),2] <- 50
+FR_RSE[(length(files) + 1):(2 * length(files)),2] <- 10
 FR_RSE[(2*length(files) + 1):(3 * length(files)),1] <- (rel_error_A[,3] + rel_error_B[,3]) / 2
-FR_RSE[(2*length(files) + 1):(3 * length(files)),2] <- 100
+FR_RSE[(2*length(files) + 1):(3 * length(files)),2] <- 25
+FR_RSE[(3*length(files) + 1):(4 * length(files)),1] <- (rel_error_A[,4] + rel_error_B[,4]) / 2
+FR_RSE[(3*length(files) + 1):(4 * length(files)),2] <- 50
+FR_RSE[(4*length(files) + 1):(5 * length(files)),1] <- (rel_error_A[,5] + rel_error_B[,5]) / 2
+FR_RSE[(4*length(files) + 1):(5 * length(files)),2] <- 100
 FR_RSE <- as.data.frame(FR_RSE)
 colnames(FR_RSE) <- c("RSE", "Trials")
 FR_RSE$Trials <- as.factor(FR_RSE$Trials)
-p1 <- ggplot(FR_RSE, aes(x=Trials, y=`RSE`)) + scale_y_continuous(labels = scales::percent, trans = 'log2', minor_breaks = scales::pretty_breaks(n = 10), breaks = c(0.1, 0.02, 0.005, 0.001))  + 
+p1 <- ggplot(FR_RSE, aes(x=Trials, y=`RSE`)) + scale_y_continuous(labels = scales::percent, trans = 'log2', minor_breaks = scales::pretty_breaks(n = 10), breaks = c(0.1, 0.01, 0.001, 0.0001))  + 
   ggtitle(TeX("$I\\exp\\{\\phi' b(t) \\}$")) +
   geom_boxplot() +  theme_bw() + theme(panel.border = element_blank(), axis.line = element_line(colour = "black"),
                                        legend.position = "none",plot.title = element_text(hjust = 0.5), text = element_text(size = 15))+ xlab("# of Trials")
 
 simga_RSE <- matrix(0, length(files) * length(n_trials), 2)
 simga_RSE[1:length(files),1] <- (rel_error_sigma_A[,1] + rel_error_sigma_B[,1]) / 2
-simga_RSE[1:length(files),2] <- 25
+simga_RSE[1:length(files),2] <- 5
 simga_RSE[(length(files) + 1):(2 * length(files)),1] <- (rel_error_sigma_A[,2] + rel_error_sigma_B[,2]) / 2
-simga_RSE[(length(files) + 1):(2 * length(files)),2] <- 50
+simga_RSE[(length(files) + 1):(2 * length(files)),2] <- 10
 simga_RSE[(2*length(files) + 1):(3 * length(files)),1] <- (rel_error_sigma_A[,3] + rel_error_sigma_B[,3]) / 2
-simga_RSE[(2*length(files) + 1):(3 * length(files)),2] <- 100
+simga_RSE[(2*length(files) + 1):(3 * length(files)),2] <- 25
+simga_RSE[(3*length(files) + 1):(4 * length(files)),1] <- (rel_error_sigma_A[,4] + rel_error_sigma_B[,4]) / 2
+simga_RSE[(3*length(files) + 1):(4 * length(files)),2] <- 50
+simga_RSE[(4*length(files) + 1):(5 * length(files)),1] <- (rel_error_sigma_A[,5] + rel_error_sigma_B[,5]) / 2
+simga_RSE[(4*length(files) + 1):(5 * length(files)),2] <- 100
 simga_RSE <- as.data.frame(simga_RSE)
 colnames(simga_RSE) <- c("RSE", "Trials")
 simga_RSE$Trials <- as.factor(simga_RSE$Trials)
-p2 <- ggplot(simga_RSE, aes(x=Trials, y=`RSE`)) + scale_y_continuous(labels = scales::percent, trans = 'log2', minor_breaks = scales::pretty_breaks(n = 10), breaks = c(0.01, 0.001, 0.0001, 0.00001))  + 
+p2 <- ggplot(simga_RSE, aes(x=Trials, y=`RSE`)) + scale_y_continuous(labels = scales::percent, trans = 'log2', minor_breaks = scales::pretty_breaks(n = 10), breaks = c(0.01, 0.001, 0.0001, 0.00001, 0.000001))  + 
   ggtitle(TeX("$\\sigma$")) +
   geom_boxplot() +  theme_bw() + theme(panel.border = element_blank(), axis.line = element_line(colour = "black"),
                                        legend.position = "none",plot.title = element_text(hjust = 0.5), text = element_text(size = 15))+ xlab("# of Trials")
 
 delta_RSE <- matrix(0, length(files) * length(n_trials), 2)
 delta_RSE[1:length(files),1] <- rel_error_delta[,1]
-delta_RSE[1:length(files),2] <- 25
+delta_RSE[1:length(files),2] <- 5
 delta_RSE[(length(files) + 1):(2 * length(files)),1] <- rel_error_delta[,2]
-delta_RSE[(length(files) + 1):(2 * length(files)),2] <- 50
+delta_RSE[(length(files) + 1):(2 * length(files)),2] <- 10
 delta_RSE[(2*length(files) + 1):(3 * length(files)),1] <- rel_error_delta[,3]
-delta_RSE[(2*length(files) + 1):(3 * length(files)),2] <- 100
+delta_RSE[(2*length(files) + 1):(3 * length(files)),2] <- 25
+delta_RSE[(3*length(files) + 1):(4 * length(files)),1] <- rel_error_delta[,4]
+delta_RSE[(3*length(files) + 1):(4 * length(files)),2] <- 50
+delta_RSE[(4*length(files) + 1):(5 * length(files)),1] <- rel_error_delta[,5]
+delta_RSE[(4*length(files) + 1):(5 * length(files)),2] <- 100
 delta_RSE <- as.data.frame(delta_RSE)
 colnames(delta_RSE) <- c("RSE", "Trials")
 delta_RSE$Trials <- as.factor(delta_RSE$Trials)
-p3 <- ggplot(delta_RSE, aes(x=Trials, y=`RSE`)) + scale_y_continuous(labels = scales::percent, trans = 'log2', minor_breaks = scales::pretty_breaks(n = 10), breaks = c(1, 0.01, 0.0001, 0.000001, 0.000001))  + 
+p3 <- ggplot(delta_RSE, aes(x=Trials, y=`RSE`)) + scale_y_continuous(labels = scales::percent, trans = 'log2', minor_breaks = scales::pretty_breaks(n = 10), breaks = c(1, 0.01, 0.0001, 0.000001, 0.00000001))  + 
   ggtitle(TeX("$\\delta$")) +
   geom_boxplot() +  theme_bw() + theme(panel.border = element_blank(), axis.line = element_line(colour = "black"),
                                        legend.position = "none",plot.title = element_text(hjust = 0.5), text = element_text(size = 15))+ xlab("# of Trials")
@@ -312,52 +329,91 @@ p3 <- ggplot(delta_RSE, aes(x=Trials, y=`RSE`)) + scale_y_continuous(labels = sc
 options(scipen = 999)
 df <- matrix(0, length(files) * length(n_trials), 2)
 df[1:length(files),1] <- dist_switches[,1]
-df[1:length(files),2] <- 25
+df[1:length(files),2] <- 5
 df[(length(files) + 1):(2 * length(files)),1] <- dist_switches[,2]
-df[(length(files) + 1):(2 * length(files)),2] <- 50
+df[(length(files) + 1):(2 * length(files)),2] <- 10
 df[(2*length(files) + 1):(3 * length(files)),1] <- dist_switches[,3]
-df[(2*length(files) + 1):(3 * length(files)),2] <- 100
+df[(2*length(files) + 1):(3 * length(files)),2] <- 25
+df[(3*length(files) + 1):(4 * length(files)),1] <- dist_switches[,4]
+df[(3*length(files) + 1):(4 * length(files)),2] <- 50
+df[(4*length(files) + 1):(5 * length(files)),1] <- dist_switches[,5]
+df[(4*length(files) + 1):(5 * length(files)),2] <- 100
 df <- as.data.frame(df)
 colnames(df) <- c("Wasserstein Distance", "Trials")
 df$Trials <- as.factor(df$Trials)
-p4 <- ggplot(df, aes(x=Trials, y=`Wasserstein Distance`)) + scale_y_continuous(trans = 'log2', minor_breaks = scales::pretty_breaks(n = 10), breaks = c(10, 1, 0.1, 0.01, 0.001))  + 
+p4 <- ggplot(df, aes(x=Trials, y=`Wasserstein Distance`)) + scale_y_continuous(labels = scales::percent, trans = 'log2', minor_breaks = scales::pretty_breaks(n = 10), breaks = c(1, 0.1, 0.01, 0.001))  + 
   ggtitle(TeX("Distribution of the # of Switches")) +
   geom_boxplot() +  theme_bw() + theme(panel.border = element_blank(), axis.line = element_line(colour = "black"),
-                                       legend.position = "none",plot.title = element_text(hjust = 0.5), text = element_text(size = 12))+ xlab("# of Trials")
+                                       legend.position = "none",plot.title = element_text(hjust = 0.5), text = element_text(size = 15))+ xlab("# of Trials")
 
 
 df <- matrix(0, length(files) * length(n_trials), 2)
 df[1:length(files),1] <- dist_prop_A[,1]
-df[1:length(files),2] <- 25
+df[1:length(files),2] <- 5
 df[(length(files) + 1):(2 * length(files)),1] <- dist_prop_A[,2]
-df[(length(files) + 1):(2 * length(files)),2] <- 50
+df[(length(files) + 1):(2 * length(files)),2] <- 10
 df[(2*length(files) + 1):(3 * length(files)),1] <- dist_prop_A[,3]
-df[(2*length(files) + 1):(3 * length(files)),2] <- 100
+df[(2*length(files) + 1):(3 * length(files)),2] <- 25
+df[(3*length(files) + 1):(4 * length(files)),1] <- dist_prop_A[,4]
+df[(3*length(files) + 1):(4 * length(files)),2] <- 50
+df[(4*length(files) + 1):(5 * length(files)),1] <- dist_prop_A[,5]
+df[(4*length(files) + 1):(5 * length(files)),2] <- 100
 df <- as.data.frame(df)
 colnames(df) <- c("Wasserstein Distance", "Trials")
 df$Trials <- as.factor(df$Trials)
-p5 <- ggplot(df, aes(x=Trials, y=`Wasserstein Distance`)) + scale_y_continuous(trans = 'log2', minor_breaks = scales::pretty_breaks(n = 10), breaks = c(10, 1, 0.1, 0.01, 0.001))  + 
+p5 <- ggplot(df, aes(x=Trials, y=`Wasserstein Distance`)) + scale_y_continuous(labels = scales::percent, trans = 'log2', minor_breaks = scales::pretty_breaks(n = 10), breaks = c(1, 0.1, 0.01, 0.001))  + 
   ggtitle(TeX("Distribution of Time Encoding for A")) +
   geom_boxplot() +  theme_bw() + theme(panel.border = element_blank(), axis.line = element_line(colour = "black"),
-                                       legend.position = "none",plot.title = element_text(hjust = 0.5), text = element_text(size = 12))+ xlab("# of Trials")
+                                       legend.position = "none",plot.title = element_text(hjust = 0.5), text = element_text(size = 15))+ xlab("# of Trials")
 
 
 df <- matrix(0, length(files) * length(n_trials), 2)
 df[1:length(files),1] <- dist_n_AB[,1]
-df[1:length(files),2] <- 25
+df[1:length(files),2] <- 5
 df[(length(files) + 1):(2 * length(files)),1] <- dist_n_AB[,2]
-df[(length(files) + 1):(2 * length(files)),2] <- 50
+df[(length(files) + 1):(2 * length(files)),2] <- 10
 df[(2*length(files) + 1):(3 * length(files)),1] <- dist_n_AB[,3]
-df[(2*length(files) + 1):(3 * length(files)),2] <- 100
+df[(2*length(files) + 1):(3 * length(files)),2] <- 25
+df[(3*length(files) + 1):(4 * length(files)),1] <- dist_n_AB[,4]
+df[(3*length(files) + 1):(4 * length(files)),2] <- 50
+df[(4*length(files) + 1):(5 * length(files)),1] <- dist_n_AB[,5]
+df[(4*length(files) + 1):(5 * length(files)),2] <- 100
 df <- as.data.frame(df)
 colnames(df) <- c("Wasserstein Distance", "Trials")
 df$Trials <- as.factor(df$Trials)
-p6 <- ggplot(df, aes(x=Trials, y=`Wasserstein Distance`)) + scale_y_continuous(trans = 'log2', minor_breaks = scales::pretty_breaks(n = 10), breaks = c(5, 1, 0.2, 0.04))  + 
-  ggtitle(TeX("Distribution of # of Spikes in AB Trials")) +
+p6 <- ggplot(df, aes(x=Trials, y=`Wasserstein Distance`)) + scale_y_continuous(labels = scales::percent, trans = 'log2', minor_breaks = scales::pretty_breaks(n = 10), breaks = c(0.1, 0.01,0.001,0.0001))  + 
+  ggtitle(TeX("Distribution of Spike Counts in AB Trials")) +
   geom_boxplot() +  theme_bw() + theme(panel.border = element_blank(), axis.line = element_line(colour = "black"),
-                                       legend.position = "none",plot.title = element_text(hjust = 0.5), text = element_text(size = 12)) + xlab("# of Trials")
+                                       legend.position = "none",plot.title = element_text(hjust = 0.5), text = element_text(size = 15)) + xlab("# of Trials")
 
+### Note some points may be removed in p3 if max_ISI < delta (see simulation code above) -- This is expected
 grid.arrange(p1, p2, p3, p4, p5, p6, ncol = 3)
 
+###############################
+### Coverage Probability ######
+###############################
 
 
+### Input current I
+colMeans(rbind(coverage_A_FR, coverage_B_FR))
+
+### Sigma
+colMeans(rbind(coverage_sigma_A, coverage_sigma_B))
+
+### Delta
+colMeans(coverage_delta, na.rm = T)
+
+
+
+################################
+#### Credible interval width ###
+################################
+
+### Input current I CI area
+colMeans(rbind(area_CI_A, area_CI_B))
+
+### Sigma CI width
+colMeans(rbind(CI_width_sigma_A, CI_width_sigma_B))
+
+### Delta CI width
+colMeans(CI_width_delta, na.rm = T)

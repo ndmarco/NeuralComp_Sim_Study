@@ -9,6 +9,7 @@ library(future.apply)
 library(ggpubr)
 library(scales)
 library(transport)
+library(statmod)
 library(ggallin)
 
 save_dir <- "."
@@ -124,6 +125,9 @@ plan(multisession, workers = ncpu)
 already_ran <- dir(save_dir)
 to_run <- which(!paste0("output", 1:100, ".RDS") %in% already_ran)
 future_lapply(to_run, function(this_seed) run_sim3(this_seed))
+
+
+
 
 ### Post-Processing
 files <- dir(save_dir)

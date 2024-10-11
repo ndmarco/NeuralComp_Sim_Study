@@ -11,6 +11,7 @@ library(ggpubr)
 library(scales)
 library(transport)
 library(ggallin)
+library(statmod)
 
 save_dir <- "/Users/ndm34/Documents/WAIC_sim_Study4"
 
@@ -207,7 +208,7 @@ run_sim4 <- function(iter){
   dat1 <- generate_data_TI_IIGPP(I_A, I_B, I_AB, basis_coef_A, basis_coef_B, basis_coef_AB, sigma_A, sigma_B, sigma_AB, 1, 1, n_AB_IIGPP, 1, 1, 3, c(0,1), c(0.25, 0.5, 0.75))
   dat$n_AB <- c(dat$n_AB, dat1$n_AB)
   dat$X_AB <- c(dat$X_AB, dat1$X_AB)
-  res <- Sampler_Competition(dat$X_A, dat$X_B, dat$X_AB, dat$n_A, dat$n_B, dat$n_AB, Warm_block1 = 100, Warm_block2 = 100, 100, 3, c(0,1), c(0.25, 0.5, 0.75))
+  res <- Sampler_Competition(dat$X_A, dat$X_B, dat$X_AB, dat$n_A, dat$n_B, dat$n_AB, 2000, 3, c(0,1), c(0.25, 0.5, 0.75))
   
   ## Run IIGPP Model
   res_A <- Sampler_IIGPP(dat$X_A, dat$n_A, 2000, 3, c(0,1), c(0.25, 0.5, 0.75))
@@ -217,9 +218,7 @@ run_sim4 <- function(iter){
   WAIC_Comp <- WAIC_Competition(dat$X_A, dat$X_B, dat$X_AB, dat$n_A, dat$n_B, dat$n_AB, res, 3, c(0,1), c(0.25, 0.5, 0.75), burnin_prop = 0.5, n_MCMC_approx2 = 30)
   waic_marginal <- WAIC_Competition_Marginal(dat$X_A, dat$X_B, dat$X_AB, dat$n_A, dat$n_B, dat$n_AB, res, 3, c(0,1), c(0.25, 0.5, 0.75), burnin_prop = 0.5)
   waic_iigpp <- WAIC_IIGPP(dat$X_A, dat$X_B, dat$X_AB, dat$n_A, dat$n_B, dat$n_AB, res_A, res_B, res_AB, 3, c(0,1), c(0.25, 0.5, 0.75), burnin_prop = 0.5)
-  # time_6_start <- Sys.time();
-  # WAIC_Comp_approx_alt <- WAIC_Competition_Approx2_IS(dat$X_A, dat$X_B, dat$X_AB, dat$n_A, dat$n_B, dat$n_AB, res, 3, c(0,1), c(0.25, 0.5, 0.75))
-  # time_6_end <- Sys.time();
+
   params <- list("I_A" = I_A, "I_B" = I_B, "I_AB" = I_AB, "sigma_A" = sigma_A, "sigma_B" = sigma_B, "sigma_AB" = sigma_AB,
                  "basis_coef_A" = basis_coef_A, "basis_coef_B" = basis_coef_B, "basis_coef_AB" = basis_coef_AB)
   output <- list("WAIC_Comp" = WAIC_Comp, "WAIC_Comp_Marginal" = waic_marginal, "WAIC_IIGPP" = waic_iigpp, 
@@ -234,7 +233,7 @@ ncpu <- min(5, availableCores())
 #
 plan(multisession, workers = ncpu)
 already_ran <- dir(save_dir)
-to_run <- which(!paste0("output", 100:125, ".RDS") %in% already_ran)
+to_run <- which(!paste0("output", 1:100, ".RDS") %in% already_ran)
 future_lapply(to_run, function(this_seed) run_sim4(this_seed))
 
 
@@ -248,7 +247,7 @@ for(i in 1:length(files)){
   prop[i] <- length(output$data$L_AB) / 25
   WAIC[i,1] <- output$WAIC_Comp$WAIC
   WAIC[i,2] <- output$WAIC_Comp_Marginal$WAIC
-  WAIC[i,3] <- output$WAIC_IGP$WAIC
+  WAIC[i,3] <- output$WAIC_IIGPP$WAIC
   print(i)
 }
 
