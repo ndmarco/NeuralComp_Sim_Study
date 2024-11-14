@@ -12,8 +12,9 @@ library(scales)
 library(transport)
 library(ggallin)
 library(statmod)
+library(gridExtra)
 
-save_dir <- "/Users/ndm34/Documents/WAIC_sim_Study6"
+save_dir <- "/Users/ndm34/Documents/Post_Pval_Sim"
 
 
 
@@ -42,6 +43,8 @@ generate_data_TI <- function(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigm
       total_time <- total_time + spike_i
       spike <- c(spike, spike_i)
     }
+    total_time <- total_time - spike[length(spike)]
+    spike <- spike[-length(spike)]
     X_A[[i]] <- spike
     n_A[i] <- length(spike)
   }
@@ -58,6 +61,8 @@ generate_data_TI <- function(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigm
       total_time <- total_time + spike_i
       spike <- c(spike, spike_i)
     }
+    total_time <- total_time - spike[length(spike)]
+    spike <- spike[-length(spike)]
     X_B[[i]] <- spike
     n_B[i] <- length(spike)
   }
@@ -105,6 +110,9 @@ generate_data_TI <- function(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigm
       iter <- iter + 1
       total_time <- sum(spike)
     }
+    total_time <- total_time - spike[length(spike)]
+    L_i <- L_i[-length(spike)]
+    spike <- spike[-length(spike)]
     n_AB[i] <- length(spike)
     L_AB[[i]] <- L_i
     X_AB[[i]] <- spike
@@ -130,26 +138,22 @@ run_sim6 <- function(iter){
   
   basis_coef_A <- rnorm(6, 0, 0.3)
   basis_coef_B <- rnorm(6, 0, 0.3)
-  dat <- generate_data_TI(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigma_B, delta, 50, 50, 50, 1, 1, 3, c(0,1), c(0.25, 0.5, 0.75))
-  
-  ## Run Competition Model 
-  res <- Sampler_Competition(dat$X_A, dat$X_B, dat$X_AB, dat$n_A, dat$n_B, dat$n_AB, 2000, 3, c(0,1), c(0.25, 0.5, 0.75))
+  dat <- generate_data_TI(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigma_B, delta, 50, 50, 50, iter, 1, 3, c(0,1), c(0.25, 0.5, 0.75))
+
   
   ## Run IIGPP Model
-  res_A <- Sampler_IIGPP(dat$X_A, dat$n_A, 2000, 3, c(0,1), c(0.25, 0.5, 0.75))
-  res_B <- Sampler_IIGPP(dat$X_B, dat$n_B, 2000, 3, c(0,1), c(0.25, 0.5, 0.75))
-  res_AB <- Sampler_IIGPP(dat$X_AB, dat$n_AB, 2000, 3, c(0,1), c(0.25, 0.5, 0.75))
+  res_A <- Sampler_IIGPP(dat$X_A, dat$n_A, 2000, 3, c(0,1), c(0.25, 0.5, 0.75), 1)
+  res_B <- Sampler_IIGPP(dat$X_B, dat$n_B, 2000, 3, c(0,1), c(0.25, 0.5, 0.75), 1)
+  res_AB <- Sampler_IIGPP(dat$X_AB, dat$n_AB, 2000, 3, c(0,1), c(0.25, 0.5, 0.75), 1)
   
-  IIGPP_Test_AB <- Test_IIGPP_Fit(output$data$X_AB, output$data$n_AB, output$res_AB, 3, c(0,1), c(0.25, 0.5, 0.75), 1, burnin_prop = 0.5)
-  IIGPP_Test_A <- Test_IIGPP_Fit(output$data$X_A, output$data$n_A, output$res_A, 3, c(0,1), c(0.25, 0.5, 0.75), 1, burnin_prop = 0.5)
-  IIGPP_Test_B <- Test_IIGPP_Fit(output$data$X_B, output$data$n_B, output$res_B, 3, c(0,1), c(0.25, 0.5, 0.75), 1, burnin_prop = 0.5)
-  # time_6_start <- Sys.time();
-  # WAIC_Comp_approx_alt <- WAIC_Competition_Approx2_IS(dat$X_A, dat$X_B, dat$X_AB, dat$n_A, dat$n_B, dat$n_AB, res, 3, c(0,1), c(0.25, 0.5, 0.75))
-  # time_6_end <- Sys.time();
+  IIGPP_Test_AB <- Test_IIGPP_Fit(dat$X_AB, dat$n_AB, res_AB, 3, c(0,1), c(0.25, 0.5, 0.75), 1, burnin_prop = 0.5)
+  IIGPP_Test_A <- Test_IIGPP_Fit(dat$X_A, dat$n_A, res_A, 3, c(0,1), c(0.25, 0.5, 0.75), 1, burnin_prop = 0.5)
+  IIGPP_Test_B <- Test_IIGPP_Fit(dat$X_B, dat$n_B, res_B, 3, c(0,1), c(0.25, 0.5, 0.75), 1, burnin_prop = 0.5)
+  
   params <- list("I_A" = I_A, "I_B" = I_B, "sigma_A" = sigma_A, "sigma_B" = sigma_B, "delta" = delta,
                  "basis_coef_A" = basis_coef_A, "basis_coef_B" = basis_coef_B)
   output <- list("IIGPP_Test_A" = IIGPP_Test_A, "IIGPP_Test_B" = IIGPP_Test_B, "IIGPP_Test_AB" = IIGPP_Test_AB, 
-                 "res" = res, "res_A" = res_A, "res_B" = res_B, "res_AB" = res_AB, "data" = dat,
+                 "res_A" = res_A, "res_B" = res_B, "res_AB" = res_AB, "data" = dat,
                  "params" = params)
   saveRDS(output, paste0(save_dir, "/output", iter,".RDS"))
 }
@@ -196,13 +200,13 @@ df[(2*length(files) + 1):(3*length(files)),1] <- IIGPP_Test[,3]
 df[(2*length(files) + 1):(3*length(files)),2] <- "AB"
 df[(2*length(files) + 1):(3*length(files)),3] <- delta
 df <- as.data.frame(df)
-colnames(df) <- c("Pval", "Stimulus", "delta")
+colnames(df) <- c("Pval", "Condition", "delta")
 df$Pval <- as.numeric(df$Pval)
-df$Stimulus <- as.factor(df$Stimulus)
+df$Condition <- as.factor(df$Condition)
 df$delta <- as.numeric(df$delta)
-IIGPP_plot <- ggplot(df, aes(x=delta, y=Pval, colour = Stimulus)) + ylab(TeX("P-value"))+
-  geom_point(aes(colour = Stimulus)) +  theme_bw() + theme(panel.border = element_blank(),  axis.line = element_line(colour = "black"), plot.title = element_text(hjust = 0.5), text = element_text(size = 15)) + xlab(TeX("$\\delta$")) + 
-  scale_colour_manual(values = c("A" = "#516EB4", "B" = "#E76D8E", "AB" = "#7F3F98")) + ggtitle("IIGPP Test")
+IIGPP_plot <- ggplot(df, aes(x=delta, y=Pval, colour = Condition)) + ylab(TeX("P-value"))+
+  geom_point(aes(colour = Condition)) +  theme_bw() + theme(panel.border = element_blank(),  axis.line = element_line(colour = "black"), plot.title = element_text(hjust = 0.5), text = element_text(size = 15)) + xlab(TeX("$\\delta$")) + 
+  scale_colour_manual(values = c("A" = "#516EB4", "B" = "#E76D8E", "AB" = "#7F3F98")) + ggtitle("Discrepency - Log Likelihood")
 
 
 df <- matrix(0, length(files)*3, 3)
@@ -216,13 +220,13 @@ df[(2*length(files) + 1):(3*length(files)),1] <- mean_test[,3]
 df[(2*length(files) + 1):(3*length(files)),2] <- "AB"
 df[(2*length(files) + 1):(3*length(files)),3] <- delta
 df <- as.data.frame(df)
-colnames(df) <- c("Pval", "Stimulus", "delta")
+colnames(df) <- c("Pval", "Condition", "delta")
 df$Pval <- as.numeric(df$Pval)
-df$Stimulus <- as.factor(df$Stimulus)
+df$Condition <- as.factor(df$Condition)
 df$delta <- as.numeric(df$delta)
-Mean_plot <- ggplot(df, aes(x=delta, y=Pval, colour = Stimulus)) + ylab(TeX("P-value"))+
-  geom_point(aes(colour = Stimulus)) +  theme_bw() + theme(panel.border = element_blank(),  axis.line = element_line(colour = "black"), plot.title = element_text(hjust = 0.5), text = element_text(size = 15)) + xlab(TeX("$\\delta$")) + 
-  scale_colour_manual(values = c("A" = "#516EB4", "B" = "#E76D8E", "AB" = "#7F3F98")) + ggtitle("Mean Spike Count Test")
+Mean_plot <- ggplot(df, aes(x=delta, y=Pval, colour = Condition)) + ylab(TeX("P-value"))+
+  geom_point(aes(colour = Condition)) +  theme_bw() + theme(panel.border = element_blank(),  axis.line = element_line(colour = "black"), plot.title = element_text(hjust = 0.5), text = element_text(size = 15)) + xlab(TeX("$\\delta$")) + 
+  scale_colour_manual(values = c("A" = "#516EB4", "B" = "#E76D8E", "AB" = "#7F3F98")) + ggtitle("Discreprency - Mean Spike Count")
 
 
 df <- matrix(0, length(files)*3, 3)
@@ -236,12 +240,12 @@ df[(2*length(files) + 1):(3*length(files)),1] <- var_test[,3]
 df[(2*length(files) + 1):(3*length(files)),2] <- "AB"
 df[(2*length(files) + 1):(3*length(files)),3] <- delta
 df <- as.data.frame(df)
-colnames(df) <- c("Pval", "Stimulus", "delta")
+colnames(df) <- c("Pval", "Condition", "delta")
 df$Pval <- as.numeric(df$Pval)
-df$Stimulus <- as.factor(df$Stimulus)
+df$Condition <- as.factor(df$Condition)
 df$delta <- as.numeric(df$delta)
-Var_plot <- ggplot(df, aes(x=delta, y=Pval, colour = Stimulus)) + ylab(TeX("P-value"))+
-  geom_point(aes(colour = Stimulus)) +  theme_bw() + theme(panel.border = element_blank(),  axis.line = element_line(colour = "black"), plot.title = element_text(hjust = 0.5), text = element_text(size = 15)) + xlab(TeX("$\\delta$")) + 
-  scale_colour_manual(values = c("A" = "#516EB4", "B" = "#E76D8E", "AB" = "#7F3F98")) + ggtitle("Var Spike Count Test")
+Var_plot <- ggplot(df, aes(x=delta, y=Pval, colour = Condition)) + ylab(TeX("P-value"))+
+  geom_point(aes(colour = Condition)) +  theme_bw() + theme(panel.border = element_blank(),  axis.line = element_line(colour = "black"), plot.title = element_text(hjust = 0.5), text = element_text(size = 15)) + xlab(TeX("$\\delta$")) + 
+  scale_colour_manual(values = c("A" = "#516EB4", "B" = "#E76D8E", "AB" = "#7F3F98")) + ggtitle("Discrepency - Var Spike Count")
 
-
+grid.arrange(IIGPP_plot, Mean_plot, Var_plot, ncol = 2)

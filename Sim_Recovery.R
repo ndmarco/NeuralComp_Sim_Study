@@ -14,7 +14,7 @@ library(transport)
 library(ggallin)
 library(gridExtra)
 
-save_dir <- "."
+save_dir <- "/Users/ndm34/Documents/Param_recovery"
 
 ### Function to generate data from competition model
 generate_data_TI <- function(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigma_B, delta, N_A, N_B, N_AB, seed, time, basis_degree,
@@ -41,6 +41,8 @@ generate_data_TI <- function(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigm
       total_time <- total_time + spike_i
       spike <- c(spike, spike_i)
     }
+    total_time <- total_time - spike[length(spike)]
+    spike <- spike[-length(spike)]
     X_A[[i]] <- spike
     n_A[i] <- length(spike)
   }
@@ -57,6 +59,8 @@ generate_data_TI <- function(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigm
       total_time <- total_time + spike_i
       spike <- c(spike, spike_i)
     }
+    total_time <- total_time - spike[length(spike)]
+    spike <- spike[-length(spike)]
     X_B[[i]] <- spike
     n_B[i] <- length(spike)
   }
@@ -104,6 +108,9 @@ generate_data_TI <- function(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigm
       iter <- iter + 1
       total_time <- sum(spike)
     }
+    total_time <- total_time - spike[length(spike)]
+    L_i <- L_i[-length(spike)]
+    spike <- spike[-length(spike)]
     n_AB[i] <- length(spike)
     L_AB[[i]] <- L_i
     X_AB[[i]] <- spike
@@ -123,12 +130,13 @@ run_sim <- function(iter, n_trials){
   delta <- rlnorm(1, -3.5, 1)
   basis_coef_A <- rnorm(6, 0, 0.3)
   basis_coef_B <- rnorm(6, 0, 0.3)
-  dat <- generate_data_TI(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigma_B, delta, n_trials, n_trials, n_trials, 1, 1, 3, c(0,1), c(0.25, 0.5, 0.75))
+  dat <- generate_data_TI(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigma_B, delta, n_trials, n_trials, n_trials, iter, 1, 3, c(0,1), c(0.25, 0.5, 0.75))
   
   ## Run Competition Model 
-  res <- Sampler_Competition(dat$X_A, dat$X_B, dat$X_AB, dat$n_A, dat$n_B, dat$n_AB, 10000, 3, c(0,1), c(0.25, 0.5, 0.75))
+  res <- Sampler_Competition(dat$X_A, dat$X_B, dat$X_AB, dat$n_A, dat$n_B, dat$n_AB, 
+                             10000, 3, c(0,1), c(0.25, 0.5, 0.75), 1)
   
-  CI <- FR_CI_Competition(seq(0,1,0.01), 3, c(0, 1), c(0.25, 0.5, 0.75), res)
+  CI <- FR_CI_Competition(seq(0,1,0.01), 3, c(0, 1), c(0.25, 0.5, 0.75), res, burnin_prop = 0.33)
   
   coverage_A <- sum((CI$A_FR_CI[,1] < dat$A_CI) & (dat$A_CI < CI$A_FR_CI[,2])) / length(dat$A_CI)
   coverage_B <- sum((CI$B_FR_CI[,1] < dat$B_CI) & (dat$B_CI < CI$B_FR_CI[,2])) / length(dat$B_CI)
@@ -138,8 +146,8 @@ run_sim <- function(iter, n_trials){
   area_CI_A <- sum((CI$A_FR_CI[,1] - CI$A_FR_CI[,2])^2)
   area_CI_B <- sum((CI$B_FR_CI[,1] - CI$B_FR_CI[,2])^2)
   
-  CI_sigma_A <- quantile(res$theta[2251:12500,3], c(0.025, 0.5, 0.975))
-  CI_sigma_B <- quantile(res$theta[2251:12500,4], c(0.025, 0.5, 0.975))
+  CI_sigma_A <- quantile(res$theta[4501:14500,3], c(0.025, 0.5, 0.975))
+  CI_sigma_B <- quantile(res$theta[4501:14500,4], c(0.025, 0.5, 0.975))
   rel_error_sigma_A <- (CI_sigma_A[2] - sigma_A)^2 / (sigma_A^2)
   rel_error_sigma_B <- (CI_sigma_B[2] - sigma_B)^2 / (sigma_B^2)
   CI_width_sigma_A <- CI_sigma_A[3] - CI_sigma_A[1]
@@ -147,7 +155,7 @@ run_sim <- function(iter, n_trials){
   coverage_sigma_A <- (CI_sigma_A[1] < sigma_A) & (sigma_A < CI_sigma_A[3])
   coverage_sigma_B <- (CI_sigma_B[1] < sigma_B) & (sigma_B < CI_sigma_B[3])
   
-  CI_delta <- quantile(res$theta[2251:12500,5], c(0.025, 0.5, 0.975))
+  CI_delta <- quantile(res$theta[4501:14500,5], c(0.025, 0.5, 0.975))
   max_isi <- max(unlist(dat$X_AB))
   if(delta > max_isi){
     rel_error_delta <- NA
@@ -161,7 +169,7 @@ run_sim <- function(iter, n_trials){
   
   
   ### posterior_predictive
-  post_pred_sample <- Competition_Posterior_Predictive(1, 3, c(0,1), c(0.25, 0.5, 0.75), res, burnin_prop =  0.3, n_samples = 100000)
+  post_pred_sample <- Competition_Posterior_Predictive(1, 3, c(0,1), c(0.25, 0.5, 0.75), res, burnin_prop =  0.33, n_samples = 100000)
   prob_switches_sample <- table(post_pred_sample$n_switches) / length(post_pred_sample$n_switches)
   density_spikes_AB_sample <- density(post_pred_sample$n_AB, from = min(post_pred_sample$n_AB) - 10, to = max(post_pred_sample$n_AB) + 10, n = 512)
   
@@ -206,13 +214,22 @@ run_sim <- function(iter, n_trials){
   saveRDS(output, paste0(save_dir, "/", n_trials, "/output", iter,".RDS"))
 }
 
+plot(dat$A_CI, type = 'l', ylim = c(0,70))
+lines(CI$A_FR_median, col = "blue")
+lines(CI$A_FR_CI[,1], col = "red")
+lines(CI$A_FR_CI[,2], col = "red")
 
+plot(dat$B_CI, type = 'l', ylim = c(70,130))
+lines(CI$B_FR_median, col = "blue")
+lines(CI$B_FR_CI[,1], col = "red")
+lines(CI$B_FR_CI[,2], col = "red")
 
 #
-n_trials = c(5,10,25,50,100)
+n_trials = c(5,10,25,50)
 for(i in 1:length(n_trials)){
   ncpu <- min(5, availableCores())
   plan(multisession, workers = ncpu)
+  dir.create(paste0(save_dir, "/", n_trials[i])) 
   already_ran <- dir(paste0(save_dir, "/", n_trials[i]))
   to_run <- which(!paste0("output", 1:100, ".RDS") %in% already_ran)
   future_lapply(to_run, function(this_seed) run_sim(this_seed, n_trials[i]))
@@ -220,7 +237,7 @@ for(i in 1:length(n_trials)){
 
 
 
-n_trials <- c(5, 10, 25, 50, 100)
+n_trials <- c(5, 10, 25, 50)
 files <- dir(paste0(save_dir, "/", n_trials[1]))
 coverage_A_FR <- matrix(NA, nrow = length(files), ncol = length(n_trials))
 coverage_B_FR <- matrix(NA, nrow = length(files), ncol = length(n_trials))
@@ -253,8 +270,8 @@ for(j in 1:length(n_trials)){
     rel_error_sigma_B[i,j] <- output$rel_error_sigma_B
     coverage_sigma_A[i,j] <- output$coverage_sigma_A
     coverage_sigma_B[i,j] <- output$coverage_sigma_B
-    CI_sigma_A <- quantile(output$res$theta[2251:12500,3], c(0.025, 0.5, 0.975))
-    CI_sigma_B <- quantile(output$res$theta[2251:12500,4], c(0.025, 0.5, 0.975))
+    CI_sigma_A <- quantile(output$res$theta[4501:14500,3], c(0.025, 0.5, 0.975))
+    CI_sigma_B <- quantile(output$res$theta[4501:14500,4], c(0.025, 0.5, 0.975))
     CI_width_sigma_A[i,j] <- CI_sigma_A[3] - CI_sigma_A[1]
     CI_width_sigma_B[i,j] <- CI_sigma_B[3] - CI_sigma_B[1]
     rel_error_delta[i,j] <- output$rel_error_delta
@@ -278,8 +295,6 @@ FR_RSE[(2*length(files) + 1):(3 * length(files)),1] <- (rel_error_A[,3] + rel_er
 FR_RSE[(2*length(files) + 1):(3 * length(files)),2] <- 25
 FR_RSE[(3*length(files) + 1):(4 * length(files)),1] <- (rel_error_A[,4] + rel_error_B[,4]) / 2
 FR_RSE[(3*length(files) + 1):(4 * length(files)),2] <- 50
-FR_RSE[(4*length(files) + 1):(5 * length(files)),1] <- (rel_error_A[,5] + rel_error_B[,5]) / 2
-FR_RSE[(4*length(files) + 1):(5 * length(files)),2] <- 100
 FR_RSE <- as.data.frame(FR_RSE)
 colnames(FR_RSE) <- c("RSE", "Trials")
 FR_RSE$Trials <- as.factor(FR_RSE$Trials)
@@ -297,8 +312,6 @@ simga_RSE[(2*length(files) + 1):(3 * length(files)),1] <- (rel_error_sigma_A[,3]
 simga_RSE[(2*length(files) + 1):(3 * length(files)),2] <- 25
 simga_RSE[(3*length(files) + 1):(4 * length(files)),1] <- (rel_error_sigma_A[,4] + rel_error_sigma_B[,4]) / 2
 simga_RSE[(3*length(files) + 1):(4 * length(files)),2] <- 50
-simga_RSE[(4*length(files) + 1):(5 * length(files)),1] <- (rel_error_sigma_A[,5] + rel_error_sigma_B[,5]) / 2
-simga_RSE[(4*length(files) + 1):(5 * length(files)),2] <- 100
 simga_RSE <- as.data.frame(simga_RSE)
 colnames(simga_RSE) <- c("RSE", "Trials")
 simga_RSE$Trials <- as.factor(simga_RSE$Trials)
@@ -316,8 +329,6 @@ delta_RSE[(2*length(files) + 1):(3 * length(files)),1] <- rel_error_delta[,3]
 delta_RSE[(2*length(files) + 1):(3 * length(files)),2] <- 25
 delta_RSE[(3*length(files) + 1):(4 * length(files)),1] <- rel_error_delta[,4]
 delta_RSE[(3*length(files) + 1):(4 * length(files)),2] <- 50
-delta_RSE[(4*length(files) + 1):(5 * length(files)),1] <- rel_error_delta[,5]
-delta_RSE[(4*length(files) + 1):(5 * length(files)),2] <- 100
 delta_RSE <- as.data.frame(delta_RSE)
 colnames(delta_RSE) <- c("RSE", "Trials")
 delta_RSE$Trials <- as.factor(delta_RSE$Trials)
@@ -336,8 +347,6 @@ df[(2*length(files) + 1):(3 * length(files)),1] <- dist_switches[,3]
 df[(2*length(files) + 1):(3 * length(files)),2] <- 25
 df[(3*length(files) + 1):(4 * length(files)),1] <- dist_switches[,4]
 df[(3*length(files) + 1):(4 * length(files)),2] <- 50
-df[(4*length(files) + 1):(5 * length(files)),1] <- dist_switches[,5]
-df[(4*length(files) + 1):(5 * length(files)),2] <- 100
 df <- as.data.frame(df)
 colnames(df) <- c("Wasserstein Distance", "Trials")
 df$Trials <- as.factor(df$Trials)
@@ -356,8 +365,6 @@ df[(2*length(files) + 1):(3 * length(files)),1] <- dist_prop_A[,3]
 df[(2*length(files) + 1):(3 * length(files)),2] <- 25
 df[(3*length(files) + 1):(4 * length(files)),1] <- dist_prop_A[,4]
 df[(3*length(files) + 1):(4 * length(files)),2] <- 50
-df[(4*length(files) + 1):(5 * length(files)),1] <- dist_prop_A[,5]
-df[(4*length(files) + 1):(5 * length(files)),2] <- 100
 df <- as.data.frame(df)
 colnames(df) <- c("Wasserstein Distance", "Trials")
 df$Trials <- as.factor(df$Trials)
@@ -376,8 +383,6 @@ df[(2*length(files) + 1):(3 * length(files)),1] <- dist_n_AB[,3]
 df[(2*length(files) + 1):(3 * length(files)),2] <- 25
 df[(3*length(files) + 1):(4 * length(files)),1] <- dist_n_AB[,4]
 df[(3*length(files) + 1):(4 * length(files)),2] <- 50
-df[(4*length(files) + 1):(5 * length(files)),1] <- dist_n_AB[,5]
-df[(4*length(files) + 1):(5 * length(files)),2] <- 100
 df <- as.data.frame(df)
 colnames(df) <- c("Wasserstein Distance", "Trials")
 df$Trials <- as.factor(df$Trials)
@@ -389,9 +394,9 @@ p6 <- ggplot(df, aes(x=Trials, y=`Wasserstein Distance`)) + scale_y_continuous(l
 ### Note some points may be removed in p3 if max_ISI < delta (see simulation code above) -- This is expected
 grid.arrange(p1, p2, p3, p4, p5, p6, ncol = 3)
 
-###############################
-### Coverage Probability ######
-###############################
+#################################
+##### Coverage Probability ######
+#################################
 
 
 ### Input current I
@@ -405,15 +410,15 @@ colMeans(coverage_delta, na.rm = T)
 
 
 
-################################
-#### Credible interval width ###
-################################
+##########################################
+#### Relative Credible interval width ####
+##########################################
 
 ### Input current I CI area
-colMeans(rbind(area_CI_A, area_CI_B))
+colMeans(rbind(area_CI_A, area_CI_B)) / colMeans(rbind(area_CI_A, area_CI_B))[1]
 
 ### Sigma CI width
-colMeans(rbind(CI_width_sigma_A, CI_width_sigma_B))
+colMeans(rbind(CI_width_sigma_A, CI_width_sigma_B)) / colMeans(rbind(CI_width_sigma_A, CI_width_sigma_B))[1]
 
 ### Delta CI width
-colMeans(CI_width_delta, na.rm = T)
+colMeans(CI_width_delta, na.rm = T) / colMeans(CI_width_delta, na.rm = T)[1]
