@@ -13,7 +13,7 @@ library(transport)
 library(ggallin)
 library(statmod)
 
-save_dir <- "/Users/ndm34/Documents/WAIC_Sim4"
+save_dir <- "."
 
 #### Generate WTA Scenarios
 

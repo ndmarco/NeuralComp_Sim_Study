@@ -12,7 +12,7 @@ library(transport)
 library(ggallin)
 library(statmod)
 
-save_dir <- "/Users/ndm34/Documents/WAIC_Sim1"
+save_dir <- "."
 
 ################################################################################
 ################################################################################
@@ -173,7 +173,7 @@ future_lapply(to_run, function(this_seed) run_sim2(this_seed))
 
 files <- dir(paste0(save_dir, "/Comp_generated/"))
 WAIC <- matrix(0, nrow = length(files), 2)
-llpd <- matrix(0, nrow = length(files), 2)
+lppd <- matrix(0, nrow = length(files), 2)
 p_theta <- matrix(0, nrow = length(files), 2)
 delta <- rep(0, length(files))
 switches <- rep(0, length(files))
@@ -196,8 +196,8 @@ for(i in 1:length(files)){
   output <- readRDS(paste0(save_dir, "/Comp_generated/", files[i]))
   WAIC[i,1] <- output$WAIC_Comp$WAIC
   WAIC[i,2] <- output$WAIC_IIGPP$WAIC
-  llpd[i,1] <- output$WAIC_Comp$llpd
-  llpd[i,2] <- output$WAIC_IIGPP$llpd
+  lppd[i,1] <- output$WAIC_Comp$lppd
+  lppd[i,2] <- output$WAIC_IIGPP$lppd
   p_theta[i,1] <- output$WAIC_Comp$Effective_pars
   p_theta[i,2] <- output$WAIC_IIGPP$Effective_pars
   delta[i] <- output$params$delta
@@ -253,15 +253,15 @@ p5 <- ggplot(df, aes(x=Relative_FR, y=Effective_pars, colour = Method))  + ylab(
                                                          plot.title = element_text(hjust = 0.5), text = element_text(size = 15)) + xlab("Delta")
 
 df <- matrix(0, length(files), 3)
-df[1:length(files),1] <- llpd[,1] - llpd[,2]
+df[1:length(files),1] <- lppd[,1] - lppd[,2]
 df[1:length(files),2] <- "WAIC Comp Conditional"
 df[1:length(files),3] <- delta
 df <- as.data.frame(df)
-colnames(df) <- c("llpd", "Method", "Relative_FR")
-df$llpd <- as.numeric(df$llpd)
+colnames(df) <- c("lppd", "Method", "Relative_FR")
+df$lppd <- as.numeric(df$lppd)
 df$Method <- as.factor(df$Method)
 df$Relative_FR <- as.numeric(df$Relative_FR)
-p6 <- ggplot(df, aes(x=Relative_FR, y=llpd)) + ylab(TeX("lppd$_{comp}$ - lppd$_{IIGPP}$"))+
+p6 <- ggplot(df, aes(x=Relative_FR, y=lppd)) + ylab(TeX("lppd$_{comp}$ - lppd$_{IIGPP}$"))+
   geom_point() +  theme_bw() + theme(panel.border = element_blank(),  axis.line = element_line(colour = "black"),
                                                          plot.title = element_text(hjust = 0.5), text = element_text(size = 15)) + xlab("Delta") 
 
@@ -407,15 +407,15 @@ future_lapply(to_run, function(this_seed) run_sim3(this_seed))
 ### Post-Processing
 files <- dir(paste0(save_dir, "/IIGPP_generated/"))
 WAIC <- matrix(0, nrow = length(files), 2)
-llpd <- matrix(0, nrow = length(files), 2)
+lppd <- matrix(0, nrow = length(files), 2)
 p_theta <- matrix(0, nrow = length(files), 2)
 rel_A_B <- rep(0, length(files))
 for(i in 1:length(files)){
   output <- readRDS(paste0(save_dir, "/IIGPP_generated/", files[i]))
   WAIC[i,1] <- output$WAIC_Comp$WAIC
   WAIC[i,2] <- output$WAIC_IIGPP$WAIC
-  llpd[i,1] <- output$WAIC_Comp$llpd
-  llpd[i,2] <- output$WAIC_IIGPP$llpd
+  lppd[i,1] <- output$WAIC_Comp$lppd
+  lppd[i,2] <- output$WAIC_IIGPP$lppd
   p_theta[i,1] <- output$WAIC_Comp$Effective_pars
   p_theta[i,2] <- output$WAIC_IIGPP$Effective_pars
   rel_A_B[i] <- (mean(output$data$n_AB) - mean(output$data$n_A)) / (mean(output$data$n_B) - mean(output$data$n_A))
@@ -456,15 +456,15 @@ p2 <- ggplot(df, aes(x=Relative_FR, y=Effective_pars, colour = Method)) + scale_
   scale_x_continuous(breaks = c(0, 1, 2), labels = c("A", "B", " B + (B-A)"))
 
 df <- matrix(0, length(files), 3)
-df[1:length(files),1] <- llpd[,1] - llpd[,2]
+df[1:length(files),1] <- lppd[,1] - lppd[,2]
 df[1:length(files),2] <- "WAIC Comp Conditional"
 df[1:length(files),3] <- rel_A_B
 df <- as.data.frame(df)
-colnames(df) <- c("llpd", "Method", "Relative_FR")
-df$llpd <- as.numeric(df$llpd)
+colnames(df) <- c("lppd", "Method", "Relative_FR")
+df$lppd <- as.numeric(df$lppd)
 df$Method <- as.factor(df$Method)
 df$Relative_FR <- as.numeric(df$Relative_FR)
-p3 <- ggplot(df, aes(x=Relative_FR, y=llpd)) + scale_y_continuous(breaks = c(0, -16, -64, -144, -1024, -3136), trans = ssqrt_trans) + ylab(TeX("lppd$_{comp}$ - lppd$_{IIGPP}$"))+
+p3 <- ggplot(df, aes(x=Relative_FR, y=lppd)) + scale_y_continuous(breaks = c(0, -16, -64, -144, -1024, -3136), trans = ssqrt_trans) + ylab(TeX("lppd$_{comp}$ - lppd$_{IIGPP}$"))+
   geom_point() +  theme_bw() + theme(panel.border = element_blank(),  axis.line = element_line(colour = "black"),
                                                          plot.title = element_text(hjust = 0.5), text = element_text(size = 15)) + xlab("Relative AB Firing Rate") + 
   scale_x_continuous(breaks = c(0, 1, 2), labels = c("A", "B", " B + (B-A)")) + geom_hline(yintercept = 0, col = "red", linetype = "dashed", lwd = 2)

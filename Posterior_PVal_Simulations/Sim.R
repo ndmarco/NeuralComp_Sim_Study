@@ -14,7 +14,7 @@ library(ggallin)
 library(statmod)
 library(gridExtra)
 
-save_dir <- "/Users/ndm34/Documents/Post_Pval_Sim"
+save_dir <- "."
 
 
 

@@ -15,7 +15,7 @@ library(transport)
 library(ggallin)
 library(statmod)
 
-save_dir <- "/Users/ndm34/Documents/WAIC_Sim3"
+save_dir <- "."
 
 ################################################################################
 ################################################################################
@@ -171,7 +171,7 @@ future_lapply(to_run, function(this_seed) run_sim4(this_seed))
 
 files <- dir(save_dir)
 WAIC <- matrix(0, nrow = length(files), 2)
-llpd <- matrix(0, nrow = length(files), 2)
+lppd <- matrix(0, nrow = length(files), 2)
 p_theta <- matrix(0, nrow = length(files), 2)
 prob_stay <- rep(0, length(files))
 switches <- rep(0, length(files))
@@ -194,8 +194,8 @@ for(i in 1:length(files)){
   output <- readRDS(paste0(save_dir, "/", files[i]))
   WAIC[i,1] <- output$WAIC_Comp$WAIC
   WAIC[i,2] <- output$WAIC_IIGPP$WAIC
-  llpd[i,1] <- output$WAIC_Comp$llpd
-  llpd[i,2] <- output$WAIC_IIGPP$llpd
+  lppd[i,1] <- output$WAIC_Comp$lppd
+  lppd[i,2] <- output$WAIC_IIGPP$lppd
   p_theta[i,1] <- output$WAIC_Comp$Effective_pars
   p_theta[i,2] <- output$WAIC_IIGPP$Effective_pars
   prob_stay[i] <- output$params$prob_stay

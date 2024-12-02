@@ -14,7 +14,7 @@ library(transport)
 library(ggallin)
 library(gridExtra)
 
-save_dir <- "/Users/ndm34/Documents/Param_recovery"
+save_dir <- "."
 
 ### Function to generate data from competition model
 generate_data_TI <- function(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigma_B, delta, N_A, N_B, N_AB, seed, time, basis_degree,
