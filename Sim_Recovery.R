@@ -1,5 +1,4 @@
-### Simulation to examine how WAIC performs when some of the trials come from the competition framework,
-### and the rest come from the IIGPP model
+### Simulation to examine how well we can recover various parameters of interest as sample size increases
 library(NeuralComp)
 library(MASS)
 library(statmod)
@@ -214,17 +213,6 @@ run_sim <- function(iter, n_trials){
   saveRDS(output, paste0(save_dir, "/", n_trials, "/output", iter,".RDS"))
 }
 
-plot(dat$A_CI, type = 'l', ylim = c(0,70))
-lines(CI$A_FR_median, col = "blue")
-lines(CI$A_FR_CI[,1], col = "red")
-lines(CI$A_FR_CI[,2], col = "red")
-
-plot(dat$B_CI, type = 'l', ylim = c(70,130))
-lines(CI$B_FR_median, col = "blue")
-lines(CI$B_FR_CI[,1], col = "red")
-lines(CI$B_FR_CI[,2], col = "red")
-
-#
 n_trials = c(5,10,25,50)
 for(i in 1:length(n_trials)){
   ncpu <- min(5, availableCores())
