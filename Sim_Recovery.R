@@ -13,7 +13,7 @@ library(transport)
 library(ggallin)
 library(gridExtra)
 
-save_dir <- "."
+save_dir <- "C:\\Users\\ndmar\\Projects\\Sim_study1_NC\\"
 
 ### Function to generate data from competition model
 generate_data_TI <- function(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigma_B, delta, N_A, N_B, N_AB, seed, time, basis_degree,
@@ -132,8 +132,10 @@ run_sim <- function(iter, n_trials){
   dat <- generate_data_TI(I_A, I_B, basis_coef_A, basis_coef_B, sigma_A, sigma_B, delta, n_trials, n_trials, n_trials, iter, 1, 3, c(0,1), c(0.25, 0.5, 0.75))
   
   ## Run Competition Model 
+  time1 <- Sys.time()
   res <- Sampler_Competition(dat$X_A, dat$X_B, dat$X_AB, dat$n_A, dat$n_B, dat$n_AB, 
                              10000, 3, c(0,1), c(0.25, 0.5, 0.75), 1)
+  sim_time <- as.numeric(Sys.time() - time1)
   
   CI <- FR_CI_Competition(seq(0,1,0.01), 3, c(0, 1), c(0.25, 0.5, 0.75), res, burnin_prop = 0.33)
   
@@ -209,13 +211,13 @@ run_sim <- function(iter, n_trials){
                  "CI_width_sigma_A" = CI_width_sigma_A, "CI_width_sigma_B" = CI_width_sigma_B,
                  "rel_error_delta" = rel_error_delta, "CI_width_delta" = CI_width_delta, 
                  "coverage_delta" = coverage_delta, "rel_dist_n_switches" = rel_dist_n_switches, "rel_dist_prop_A" = rel_dist_prop_A,
-                 "rel_dist_n_AB" = rel_dist_n_AB, "params" = params)
+                 "rel_dist_n_AB" = rel_dist_n_AB, "params" = params, "sim_time" = sim_time)
   saveRDS(output, paste0(save_dir, "/", n_trials, "/output", iter,".RDS"))
 }
 
 n_trials = c(5,10,25,50)
 for(i in 1:length(n_trials)){
-  ncpu <- min(5, availableCores())
+  ncpu <- min(10, availableCores())
   plan(multisession, workers = ncpu)
   dir.create(paste0(save_dir, "/", n_trials[i])) 
   already_ran <- dir(paste0(save_dir, "/", n_trials[i]))
